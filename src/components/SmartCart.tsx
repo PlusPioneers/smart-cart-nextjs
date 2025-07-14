@@ -19,16 +19,28 @@ import {
   Package,
   Users,
   Store,
-  BarChart3
+  BarChart3,
+  Map,
+  Navigation,
+  Sparkles,
+  Star,
+  ThumbsUp
 } from 'lucide-react';
 import { useCart } from '@/hooks/useCart';
 import { Product } from '@/types';
+import StoreSelector from './StoreSelector';
+import StoreMap from './StoreMap';
 
 const SmartCart: React.FC = () => {
   // Collapsible states for mobile
   const [showBudget, setShowBudget] = useState(true);
   const [showSuggestions, setShowSuggestions] = useState(true);
   const [showCart, setShowCart] = useState(true);
+  const [showRecommendations, setShowRecommendations] = useState(true);
+
+  // Modal states
+  const [showStoreSelector, setShowStoreSelector] = useState(false);
+  const [showStoreMap, setShowStoreMap] = useState(false);
 
   // Responsive state: mobile or desktop
   const [isMobile, setIsMobile] = useState(false);
@@ -47,12 +59,15 @@ const SmartCart: React.FC = () => {
       setShowBudget(false);
       setShowSuggestions(false);
       setShowCart(false);
+      setShowRecommendations(false);
     } else {
       setShowBudget(true);
       setShowSuggestions(true);
       setShowCart(true);
+      setShowRecommendations(true);
     }
   }, [isMobile]);
+
   const {
     cart,
     budget,
@@ -62,19 +77,22 @@ const SmartCart: React.FC = () => {
     budgetUtilization,
     isOverBudget,
     suggestions,
+    recommendations,
+    selectedStore,
     setBudget,
+    setSelectedStore,
     addToCart,
     removeFromCart,
     updateQuantity,
     clearCart,
     acceptSuggestion,
     dismissSuggestion,
-    mockProducts
+    mockProducts,
+    mockStores
   } = useCart();
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [currentStep, setCurrentStep] = useState<'budget' | 'shopping'>('budget');
-  const [highlightedAisle, setHighlightedAisle] = useState<number | null>(null);
+  const [currentStep, setCurrentStep] = useState<'budget' | 'store' | 'shopping'>('budget');
   const [loading, setLoading] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
@@ -92,6 +110,11 @@ const SmartCart: React.FC = () => {
     return matchesSearch && matchesCategory;
   });
 
+  // Get cart products for map navigation
+  const cartProducts = cart.map(item => 
+    mockProducts.find(p => p.id === item.id)
+  ).filter(Boolean) as Product[];
+
   // Generate mock data button handler
   const handleGenerateMockData = async () => {
     setLoading(true);
@@ -108,6 +131,14 @@ const SmartCart: React.FC = () => {
       console.error('❌ Failed to generate mock data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Add recommended product to cart
+  const handleAddRecommendation = (productId: string) => {
+    const product = mockProducts.find(p => p.id === productId);
+    if (product) {
+      addToCart(product);
     }
   };
 
@@ -158,13 +189,72 @@ const SmartCart: React.FC = () => {
             </div>
 
             <button
-              onClick={() => setCurrentStep('shopping')}
+              onClick={() => setCurrentStep('store')}
               className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-blue-700 transition-colors"
             >
-              Start Shopping
+              Continue
             </button>
           </div>
         </div>
+      </div>
+    );
+  }
+
+  // Store Selection Step
+  if (currentStep === 'store') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+        <div className="max-w-md mx-auto">
+          <div className="bg-white rounded-xl shadow-lg p-8 text-center">
+            <Store className="mx-auto mb-4 text-blue-600" size={48} />
+            <h1 className="text-2xl font-bold text-gray-800 mb-2">Select Store</h1>
+            <p className="text-gray-600 mb-6">Choose your preferred store location</p>
+            
+            {selectedStore ? (
+              <div className="mb-6 p-4 bg-blue-50 rounded-lg">
+                <h3 className="font-semibold text-blue-800">{selectedStore.name}</h3>
+                <p className="text-blue-600 text-sm">{selectedStore.address}, {selectedStore.area}</p>
+                <p className="text-blue-600 text-sm">{selectedStore.city}</p>
+              </div>
+            ) : (
+              <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+                <p className="text-gray-500">No store selected</p>
+              </div>
+            )}
+
+            <button
+              onClick={() => setShowStoreSelector(true)}
+              className="w-full bg-green-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-green-700 transition-colors mb-4"
+            >
+              {selectedStore ? 'Change Store' : 'Select Store'}
+            </button>
+
+            <div className="flex space-x-3">
+              <button
+                onClick={() => setCurrentStep('budget')}
+                className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-400 transition-colors"
+              >
+                Back
+              </button>
+              <button
+                onClick={() => setCurrentStep('shopping')}
+                disabled={!selectedStore}
+                className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Start Shopping
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {showStoreSelector && (
+          <StoreSelector
+            stores={mockStores}
+            selectedStore={selectedStore}
+            onStoreSelect={setSelectedStore}
+            onClose={() => setShowStoreSelector(false)}
+          />
+        )}
       </div>
     );
   }
@@ -178,14 +268,36 @@ const SmartCart: React.FC = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
               <ShoppingCart className="text-blue-600" size={24} />
-              <h1 className="text-xl font-bold text-gray-800">Smart Cart</h1>
+              <div>
+                <h1 className="text-xl font-bold text-gray-800">Smart Cart</h1>
+                {selectedStore && (
+                  <p className="text-sm text-gray-600">{selectedStore.name}</p>
+                )}
+              </div>
             </div>
-            <button
-              onClick={() => setCurrentStep('budget')}
-              className="text-sm text-blue-600 hover:text-blue-700"
-            >
-              Change Budget
-            </button>
+            <div className="flex items-center space-x-3">
+              {selectedStore && cartProducts.length > 0 && (
+                <button
+                  onClick={() => setShowStoreMap(true)}
+                  className="flex items-center space-x-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  <Map size={16} />
+                  <span>Store Map</span>
+                </button>
+              )}
+              <button
+                onClick={() => setCurrentStep('store')}
+                className="text-sm text-blue-600 hover:text-blue-700"
+              >
+                Change Store
+              </button>
+              <button
+                onClick={() => setCurrentStep('budget')}
+                className="text-sm text-blue-600 hover:text-blue-700"
+              >
+                Change Budget
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -206,7 +318,6 @@ const SmartCart: React.FC = () => {
               </button>
               {showBudget && (
                 <div className="p-4">
-                  {/* ...existing budget summary content... */}
                   <div className="space-y-4">
                     <div className="flex justify-between">
                       <span className="text-blue-700 font-semibold">Budget:</span>
@@ -253,6 +364,51 @@ const SmartCart: React.FC = () => {
               )}
             </div>
 
+            {/* AI Recommendations (collapsible) */}
+            <div className="bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-lg p-2">
+              <button
+                className="w-full flex justify-between items-center px-4 py-3 font-semibold text-purple-800 focus:outline-none"
+                onClick={() => setShowRecommendations((v) => !v)}
+                aria-expanded={showRecommendations}
+                disabled={recommendations.length === 0}
+              >
+                <span className="flex items-center"><Sparkles size={18} className="mr-2" />AI Recommendations</span>
+                <span>{showRecommendations ? '▲' : '▼'}</span>
+              </button>
+              {showRecommendations && recommendations.length > 0 && (
+                <div className="p-4">
+                  {recommendations.map((rec) => {
+                    const product = mockProducts.find(p => p.id === rec.productId);
+                    if (!product) return null;
+                    
+                    return (
+                      <div key={rec.id} className="bg-white rounded-lg p-3 mb-3 last:mb-0">
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="flex-1">
+                            <h4 className="font-medium text-gray-800">{product.name}</h4>
+                            <p className="text-sm text-gray-600">₹{product.price}</p>
+                            <p className="text-xs text-purple-600 mt-1">{rec.reason}</p>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <div className="flex items-center text-yellow-500">
+                              <Star size={12} className="fill-current" />
+                              <span className="text-xs ml-1">{product.rating}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleAddRecommendation(rec.productId)}
+                          className="w-full bg-purple-600 text-white py-2 px-3 rounded text-sm hover:bg-purple-700 transition-colors"
+                        >
+                          Add to Cart
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
             {/* Budget Suggestions (collapsible) */}
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-2">
               <button
@@ -269,8 +425,16 @@ const SmartCart: React.FC = () => {
                   {suggestions.map((suggestion) => (
                     <div key={suggestion.id} className="bg-white rounded-lg p-3 mb-3 last:mb-0">
                       <p className="text-sm text-gray-700 mb-2">
-                        Consider <strong>{suggestion.alternative.name}</strong> instead of{' '}
-                        <strong>{suggestion.original.name}</strong>
+                        {suggestion.type === 'alternative' && suggestion.alternative && (
+                          <>Consider <strong>{suggestion.alternative.name}</strong> instead of{' '}
+                          <strong>{suggestion.original.name}</strong></>
+                        )}
+                        {suggestion.type === 'discount' && suggestion.alternative && (
+                          <>Get <strong>{suggestion.alternative.name}</strong> with {suggestion.alternative.discount}% off</>
+                        )}
+                        {suggestion.type === 'bulk' && (
+                          <>Buy more <strong>{suggestion.original.name}</strong> for bulk savings</>
+                        )}
                       </p>
                       <p className="text-sm text-green-600 font-medium mb-3">
                         Save ₹{suggestion.savings.toFixed(2)}
@@ -302,12 +466,11 @@ const SmartCart: React.FC = () => {
                 onClick={() => setShowCart((v) => !v)}
                 aria-expanded={showCart}
               >
-                <span>Shopping Cart</span>
+                <span>Shopping Cart ({cart.length})</span>
                 <span>{showCart ? '▲' : '▼'}</span>
               </button>
               {showCart && (
                 <div className="p-4">
-                  {/* ...existing shopping cart content... */}
                   <div className="flex items-center justify-between mb-4">
                     <h2 className="text-lg font-semibold text-gray-800">Shopping Cart</h2>
                     {cart.length > 0 && (
@@ -370,7 +533,7 @@ const SmartCart: React.FC = () => {
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
             {/* Budget Summary (card) */}
             <div className="bg-white rounded-lg shadow-sm p-6 flex flex-col">
               <h2 className="font-semibold text-blue-700 mb-4 text-lg">Budget Summary</h2>
@@ -418,6 +581,43 @@ const SmartCart: React.FC = () => {
               </div>
             </div>
 
+            {/* AI Recommendations (card) */}
+            <div className="bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-lg p-6 flex flex-col">
+              <h2 className="font-semibold text-purple-800 mb-4 text-lg flex items-center"><Sparkles size={18} className="mr-2" />AI Recommendations</h2>
+              {recommendations.length === 0 ? (
+                <p className="text-gray-500">No recommendations available</p>
+              ) : (
+                <div className="space-y-4">
+                  {recommendations.slice(0, 2).map((rec) => {
+                    const product = mockProducts.find(p => p.id === rec.productId);
+                    if (!product) return null;
+                    
+                    return (
+                      <div key={rec.id} className="bg-white rounded-lg p-3">
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="flex-1">
+                            <h4 className="font-medium text-gray-800 text-sm">{product.name}</h4>
+                            <p className="text-sm text-gray-600">₹{product.price}</p>
+                            <p className="text-xs text-purple-600 mt-1">{rec.reason}</p>
+                          </div>
+                          <div className="flex items-center text-yellow-500">
+                            <Star size={12} className="fill-current" />
+                            <span className="text-xs ml-1">{product.rating}</span>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleAddRecommendation(rec.productId)}
+                          className="w-full bg-purple-600 text-white py-1 px-3 rounded text-sm hover:bg-purple-700 transition-colors"
+                        >
+                          Add to Cart
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
             {/* Budget Suggestions (card) */}
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 flex flex-col">
               <h2 className="font-semibold text-yellow-800 mb-4 text-lg flex items-center"><TrendingDown size={18} className="mr-2" />Budget Suggestions</h2>
@@ -425,11 +625,18 @@ const SmartCart: React.FC = () => {
                 <p className="text-gray-500">No suggestions available</p>
               ) : (
                 <div className="space-y-4">
-                  {suggestions.map((suggestion) => (
-                    <div key={suggestion.id} className="bg-white rounded-lg p-3 mb-3 last:mb-0">
+                  {suggestions.slice(0, 2).map((suggestion) => (
+                    <div key={suggestion.id} className="bg-white rounded-lg p-3">
                       <p className="text-sm text-gray-700 mb-2">
-                        Consider <strong>{suggestion.alternative.name}</strong> instead of{' '}
-                        <strong>{suggestion.original.name}</strong>
+                        {suggestion.type === 'alternative' && suggestion.alternative && (
+                          <>Consider <strong>{suggestion.alternative.name}</strong> instead</>
+                        )}
+                        {suggestion.type === 'discount' && suggestion.alternative && (
+                          <>{suggestion.alternative.discount}% off available</>
+                        )}
+                        {suggestion.type === 'bulk' && (
+                          <>Bulk savings available</>
+                        )}
                       </p>
                       <p className="text-sm text-green-600 font-medium mb-3">
                         Save ₹{suggestion.savings.toFixed(2)}
@@ -456,7 +663,7 @@ const SmartCart: React.FC = () => {
 
             {/* Shopping Cart (card) */}
             <div className="bg-white rounded-lg shadow-sm p-6 flex flex-col">
-              <h2 className="font-semibold text-gray-800 mb-4 text-lg">Shopping Cart</h2>
+              <h2 className="font-semibold text-gray-800 mb-4 text-lg">Shopping Cart ({cart.length})</h2>
               {cart.length === 0 ? (
                 <div className="text-center py-8">
                   <ShoppingCart className="mx-auto text-gray-400 mb-2" size={32} />
@@ -464,42 +671,34 @@ const SmartCart: React.FC = () => {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {cart.map((item) => (
+                  {cart.slice(0, 3).map((item) => (
                     <div key={item.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                       <div className="flex-1">
-                        <h4 className="font-medium text-gray-800">{item.name}</h4>
+                        <h4 className="font-medium text-gray-800 text-sm">{item.name}</h4>
                         <p className="text-sm text-gray-600">
-                          ₹{item.price.toFixed(2)} {item.originalPrice && (
-                            <span className="line-through text-gray-400">₹{item.originalPrice.toFixed(2)}</span>
-                          )}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          Aisle {item.location.aisle}, {item.location.shelf}
+                          ₹{item.price.toFixed(2)} × {item.quantity}
                         </p>
                       </div>
                       <div className="flex items-center space-x-2">
                         <button
                           onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                          className="p-1 bg-blue-100 rounded hover:bg-blue-200 transition-colors text-blue-700 border border-blue-300"
+                          className="p-1 bg-blue-100 rounded hover:bg-blue-200 transition-colors text-blue-700"
                         >
-                          <Minus size={16} />
+                          <Minus size={12} />
                         </button>
-                        <span className="w-8 text-center font-bold text-blue-900 bg-blue-50 rounded px-2 py-1 border border-blue-200">{item.quantity}</span>
+                        <span className="w-6 text-center text-sm font-bold">{item.quantity}</span>
                         <button
                           onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                          className="p-1 bg-blue-100 rounded hover:bg-blue-200 transition-colors text-blue-700 border border-blue-300"
+                          className="p-1 bg-blue-100 rounded hover:bg-blue-200 transition-colors text-blue-700"
                         >
-                          <Plus size={16} />
-                        </button>
-                        <button
-                          onClick={() => removeFromCart(item.id)}
-                          className="p-1 text-red-600 hover:text-red-700 transition-colors ml-2"
-                        >
-                          <X size={14} />
+                          <Plus size={12} />
                         </button>
                       </div>
                     </div>
                   ))}
+                  {cart.length > 3 && (
+                    <p className="text-sm text-gray-500 text-center">+{cart.length - 3} more items</p>
+                  )}
                 </div>
               )}
               {cart.length > 0 && (
@@ -514,7 +713,6 @@ const SmartCart: React.FC = () => {
             </div>
           </div>
         )}
-        {/* ...existing code for search, products, statistics... */}
 
         {/* Search and Filters */}
         <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
@@ -544,19 +742,30 @@ const SmartCart: React.FC = () => {
         </div>
 
         {/* Products Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredProducts.map((product: Product) => (
             <div key={product.id} className="bg-white rounded-lg shadow-sm border hover:shadow-md transition-shadow">
               <div className="p-4">
                 <div className="flex justify-between items-start mb-2">
-                  <div>
+                  <div className="flex-1">
                     <h3 className="font-semibold text-gray-800 line-clamp-2">{product.name}</h3>
                     <p className="text-sm text-gray-600">{product.brand}</p>
-                    <p className="text-xs text-gray-500 capitalize">{product.category.replace('_', ' ')}</p>
+                    <p className="text-xs text-gray-500 capitalize">{product.subcategory?.replace('_', ' ')}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-lg font-bold text-green-600">₹{product.price}</p>
-                    <p className="text-xs text-gray-500">{product.sku}</p>
+                    <div className="flex items-center space-x-1">
+                      <p className="text-lg font-bold text-green-600">₹{product.price}</p>
+                      {product.discount > 0 && (
+                        <span className="text-xs bg-red-100 text-red-600 px-1 rounded">
+                          {product.discount}% off
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center text-yellow-500 mt-1">
+                      <Star size={12} className="fill-current" />
+                      <span className="text-xs ml-1">{product.rating}</span>
+                      <span className="text-xs text-gray-400 ml-1">({product.reviewCount})</span>
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center justify-between mt-4">
@@ -566,10 +775,11 @@ const SmartCart: React.FC = () => {
                   </div>
                   <button
                     onClick={() => addToCart(product)}
-                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-1"
+                    disabled={!product.inStock}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-1 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Plus size={16} />
-                    <span>Add</span>
+                    <span>{product.inStock ? 'Add' : 'Out of Stock'}</span>
                   </button>
                 </div>
               </div>
@@ -587,7 +797,7 @@ const SmartCart: React.FC = () => {
         {/* Data Statistics */}
         <div className="bg-white rounded-lg shadow-sm p-6 mt-8">
           <h3 className="font-semibold text-gray-800 mb-4">Data Statistics</h3>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="text-center">
               <Package className="mx-auto text-blue-600 mb-2" size={24} />
               <p className="text-2xl font-bold text-gray-800">{mockProducts.length}</p>
@@ -595,22 +805,40 @@ const SmartCart: React.FC = () => {
             </div>
             <div className="text-center">
               <Store className="mx-auto text-green-600 mb-2" size={24} />
-              <p className="text-2xl font-bold text-gray-800">25</p>
+              <p className="text-2xl font-bold text-gray-800">{mockStores.length}</p>
               <p className="text-sm text-gray-600">Stores</p>
             </div>
             <div className="text-center">
               <Users className="mx-auto text-purple-600 mb-2" size={24} />
-              <p className="text-2xl font-bold text-gray-800">100</p>
+              <p className="text-2xl font-bold text-gray-800">150</p>
               <p className="text-sm text-gray-600">Customers</p>
             </div>
             <div className="text-center">
               <BarChart3 className="mx-auto text-orange-600 mb-2" size={24} />
-              <p className="text-2xl font-bold text-gray-800">300</p>
+              <p className="text-2xl font-bold text-gray-800">500</p>
               <p className="text-sm text-gray-600">Transactions</p>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Modals */}
+      {showStoreSelector && (
+        <StoreSelector
+          stores={mockStores}
+          selectedStore={selectedStore}
+          onStoreSelect={setSelectedStore}
+          onClose={() => setShowStoreSelector(false)}
+        />
+      )}
+
+      {showStoreMap && selectedStore && (
+        <StoreMap
+          store={selectedStore}
+          cartProducts={cartProducts}
+          onClose={() => setShowStoreMap(false)}
+        />
+      )}
     </div>
   );
 };

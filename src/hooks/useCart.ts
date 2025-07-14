@@ -1,7 +1,8 @@
 // src/hooks/useCart.ts
 
 import { useState, useEffect, useCallback } from 'react';
-import { CartItem, Product, BudgetSuggestion } from '@/types';
+import { CartItem, Product, BudgetSuggestion, Store, Customer, SalesTransaction, AIRecommendation } from '@/types';
+import { createAIEngine } from '@/lib/aiRecommendations';
 
 interface UseCartReturn {
   cart: CartItem[];
@@ -12,7 +13,10 @@ interface UseCartReturn {
   budgetUtilization: number;
   isOverBudget: boolean;
   suggestions: BudgetSuggestion[];
+  recommendations: AIRecommendation[];
+  selectedStore: Store | null;
   setBudget: (budget: number) => void;
+  setSelectedStore: (store: Store) => void;
   addToCart: (product: Product) => void;
   removeFromCart: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
@@ -21,13 +25,21 @@ interface UseCartReturn {
   dismissSuggestion: (suggestionId: number) => void;
   loadMockData: () => Promise<void>;
   mockProducts: Product[];
+  mockStores: Store[];
+  mockCustomers: Customer[];
+  mockTransactions: SalesTransaction[];
 }
 
 export const useCart = (): UseCartReturn => {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [budget, setBudget] = useState<number>(1000);
   const [suggestions, setSuggestions] = useState<BudgetSuggestion[]>([]);
+  const [recommendations, setRecommendations] = useState<AIRecommendation[]>([]);
+  const [selectedStore, setSelectedStore] = useState<Store | null>(null);
   const [mockProducts, setMockProducts] = useState<Product[]>([]);
+  const [mockStores, setMockStores] = useState<Store[]>([]);
+  const [mockCustomers, setMockCustomers] = useState<Customer[]>([]);
+  const [mockTransactions, setMockTransactions] = useState<SalesTransaction[]>([]);
 
   // Load mock data on component mount
   const loadMockData = useCallback(async () => {
@@ -37,6 +49,9 @@ export const useCart = (): UseCartReturn => {
       
       if (result.success) {
         setMockProducts(result.data.products);
+        setMockStores(result.data.stores);
+        setMockCustomers(result.data.customers);
+        setMockTransactions(result.data.salesTransactions);
         console.log('Mock data loaded:', result.summary);
       }
     } catch (error) {
@@ -57,15 +72,28 @@ export const useCart = (): UseCartReturn => {
   const budgetUtilization = (cartTotal / budget) * 100;
   const isOverBudget = cartTotal > budget;
 
-  // Find cheaper alternative
-  const findCheaperAlternative = useCallback((product: Product): Product | null => {
-    return mockProducts.find(p => 
-      p.category === product.category && 
-      p.price < product.price && 
-      p.id !== product.id &&
-      !cart.some(cartItem => cartItem.id === p.id)
-    ) || null;
-  }, [mockProducts, cart]);
+  // Update AI recommendations when cart changes
+  useEffect(() => {
+    if (mockProducts.length > 0 && mockCustomers.length > 0 && mockTransactions.length > 0) {
+      const aiEngine = createAIEngine(mockProducts, mockCustomers, mockTransactions);
+      
+      // Set a sample customer for personalized recommendations
+      const sampleCustomer = mockCustomers[0];
+      aiEngine.setCurrentCustomer(sampleCustomer);
+      
+      // Generate recommendations
+      const newRecommendations = aiEngine.generateRecommendations(cart, 5);
+      setRecommendations(newRecommendations);
+      
+      // Generate budget suggestions if over budget
+      if (isOverBudget) {
+        const budgetSuggestions = aiEngine.generateBudgetSuggestions(cart, budget);
+        setSuggestions(budgetSuggestions);
+      } else {
+        setSuggestions([]);
+      }
+    }
+  }, [cart, budget, isOverBudget, mockProducts, mockCustomers, mockTransactions]);
 
   // Add product to cart
   const addToCart = useCallback((product: Product) => {
@@ -80,32 +108,20 @@ export const useCart = (): UseCartReturn => {
         )
       );
     } else {
-      // Check if we should suggest an alternative
-      const alternative = findCheaperAlternative(product);
-      
-      if (alternative && (cartTotal + product.price > budget * 0.8)) {
-        const newSuggestion: BudgetSuggestion = {
-          id: Date.now(),
-          original: product,
-          alternative: alternative,
-          savings: product.price - alternative.price
-        };
-        setSuggestions(prev => [...prev, newSuggestion]);
-        return;
-      }
-
       const newCartItem: CartItem = {
         id: product.id,
         name: product.name,
         price: product.price,
         quantity: 1,
         category: product.category,
-        location: product.location
+        subcategory: product.subcategory,
+        location: product.location,
+        discount: product.discount
       };
       
       setCart(prevCart => [...prevCart, newCartItem]);
     }
-  }, [cart, cartTotal, budget, findCheaperAlternative]);
+  }, [cart]);
 
   // Remove product from cart
   const removeFromCart = useCallback((productId: string) => {
@@ -130,12 +146,13 @@ export const useCart = (): UseCartReturn => {
   const clearCart = useCallback(() => {
     setCart([]);
     setSuggestions([]);
+    setRecommendations([]);
   }, []);
 
   // Accept suggestion
   const acceptSuggestion = useCallback((suggestionId: number) => {
     const suggestion = suggestions.find(s => s.id === suggestionId);
-    if (!suggestion) return;
+    if (!suggestion || !suggestion.alternative) return;
 
     const alternativeWithSavings: CartItem = {
       id: suggestion.alternative.id,
@@ -144,30 +161,24 @@ export const useCart = (): UseCartReturn => {
       originalPrice: suggestion.original.price,
       quantity: 1,
       category: suggestion.alternative.category,
-      location: suggestion.alternative.location
+      subcategory: suggestion.alternative.subcategory,
+      location: suggestion.alternative.location,
+      discount: suggestion.alternative.discount
     };
 
-    setCart(prevCart => [...prevCart, alternativeWithSavings]);
+    // Remove original item and add alternative
+    setCart(prevCart => {
+      const filteredCart = prevCart.filter(item => item.id !== suggestion.original.id);
+      return [...filteredCart, alternativeWithSavings];
+    });
+    
     setSuggestions(prev => prev.filter(s => s.id !== suggestionId));
   }, [suggestions]);
 
   // Dismiss suggestion
   const dismissSuggestion = useCallback((suggestionId: number) => {
-    const suggestion = suggestions.find(s => s.id === suggestionId);
-    if (!suggestion) return;
-
-    const originalProduct: CartItem = {
-      id: suggestion.original.id,
-      name: suggestion.original.name,
-      price: suggestion.original.price,
-      quantity: 1,
-      category: suggestion.original.category,
-      location: suggestion.original.location
-    };
-
-    setCart(prevCart => [...prevCart, originalProduct]);
     setSuggestions(prev => prev.filter(s => s.id !== suggestionId));
-  }, [suggestions]);
+  }, []);
 
   return {
     cart,
@@ -178,7 +189,10 @@ export const useCart = (): UseCartReturn => {
     budgetUtilization,
     isOverBudget,
     suggestions,
+    recommendations,
+    selectedStore,
     setBudget,
+    setSelectedStore,
     addToCart,
     removeFromCart,
     updateQuantity,
@@ -186,6 +200,9 @@ export const useCart = (): UseCartReturn => {
     acceptSuggestion,
     dismissSuggestion,
     loadMockData,
-    mockProducts
+    mockProducts,
+    mockStores,
+    mockCustomers,
+    mockTransactions
   };
 };
