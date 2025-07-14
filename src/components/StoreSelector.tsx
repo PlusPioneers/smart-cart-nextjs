@@ -4,7 +4,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Store } from '@/types';
-import { MapPin, Clock, Users, Star, ChevronRight } from 'lucide-react';
+import { MapPin, Clock, Users, Star, ChevronRight, Search, Filter } from 'lucide-react';
 
 interface StoreSelectorProps {
   stores: Store[];
@@ -52,64 +52,73 @@ const StoreSelector: React.FC<StoreSelectorProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[95vh] overflow-hidden">
         {/* Header */}
-        <div className="bg-blue-600 text-white p-6">
+        <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold">Select Store Branch</h2>
+            <div>
+              <h2 className="text-2xl font-bold text-white">Select Store Branch</h2>
+              <p className="text-blue-100 mt-2 text-base">Choose your preferred store location</p>
+            </div>
             <button
               onClick={onClose}
-              className="text-white hover:text-blue-200 text-2xl font-bold"
+              className="text-white hover:text-blue-200 text-3xl font-bold transition-colors w-10 h-10 flex items-center justify-center rounded-full hover:bg-blue-500"
             >
               ×
             </button>
           </div>
-          <p className="text-blue-100 mt-2">Choose your preferred store location</p>
         </div>
 
         {/* Filters */}
         <div className="p-6 border-b bg-gray-50">
+          <div className="flex items-center mb-4">
+            <Filter className="text-gray-600 mr-2" size={20} />
+            <h3 className="text-lg font-semibold text-gray-800">Filter Stores</h3>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-semibold text-gray-800 mb-2">
                 Search Stores
               </label>
-              <input
-                type="text"
-                placeholder="Search by name or area..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                <input
+                  type="text"
+                  placeholder="Search by name or area..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-800 placeholder-gray-500 font-medium"
+                />
+              </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-semibold text-gray-800 mb-2">
                 City
               </label>
               <select
                 value={selectedCity}
                 onChange={(e) => setSelectedCity(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-800 font-medium bg-white"
               >
                 {cities.map(city => (
-                  <option key={city} value={city}>
+                  <option key={city} value={city} className="text-gray-800 font-medium">
                     {city === 'all' ? 'All Cities' : city}
                   </option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-semibold text-gray-800 mb-2">
                 Store Chain
               </label>
               <select
                 value={selectedChain}
                 onChange={(e) => setSelectedChain(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-800 font-medium bg-white"
               >
                 {chains.map(chain => (
-                  <option key={chain} value={chain}>
+                  <option key={chain} value={chain} className="text-gray-800 font-medium">
                     {chain === 'all' ? 'All Chains' : chain}
                   </option>
                 ))}
@@ -119,35 +128,36 @@ const StoreSelector: React.FC<StoreSelectorProps> = ({
         </div>
 
         {/* Store List */}
-        <div className="overflow-y-auto max-h-96">
+        <div className="overflow-y-auto max-h-[50vh]">
           {Object.keys(storesByCity).length === 0 ? (
-            <div className="p-8 text-center text-gray-500">
-              <MapPin className="mx-auto mb-4 text-gray-400" size={48} />
-              <p>No stores found matching your criteria</p>
+            <div className="p-12 text-center text-gray-500">
+              <MapPin className="mx-auto mb-4 text-gray-400" size={64} />
+              <p className="text-lg font-medium text-gray-600">No stores found matching your criteria</p>
+              <p className="text-gray-500 mt-2">Try adjusting your search filters</p>
             </div>
           ) : (
             Object.entries(storesByCity).map(([city, cityStores]) => (
               <div key={city} className="border-b last:border-b-0">
-                <div className="bg-gray-100 px-6 py-3">
-                  <h3 className="font-semibold text-gray-800 flex items-center">
-                    <MapPin size={16} className="mr-2" />
-                    {city} ({cityStores.length} stores)
+                <div className="bg-gradient-to-r from-gray-100 to-gray-200 px-6 py-4">
+                  <h3 className="font-bold text-gray-800 text-lg flex items-center">
+                    <MapPin size={20} className="mr-3 text-blue-600" />
+                    {city} ({cityStores.length} store{cityStores.length !== 1 ? 's' : ''})
                   </h3>
                 </div>
-                <div className="divide-y">
+                <div className="divide-y divide-gray-200">
                   {cityStores.map((store) => (
                     <div
                       key={store.id}
                       onClick={() => handleStoreSelect(store)}
-                      className={`p-6 hover:bg-blue-50 cursor-pointer transition-colors ${
-                        selectedStore?.id === store.id ? 'bg-blue-100 border-l-4 border-blue-500' : ''
+                      className={`p-6 hover:bg-blue-50 cursor-pointer transition-all duration-200 ${
+                        selectedStore?.id === store.id ? 'bg-blue-100 border-l-4 border-blue-600 shadow-md' : 'hover:shadow-sm'
                       }`}
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
-                          <div className="flex items-center space-x-3 mb-2">
-                            <h4 className="font-semibold text-gray-800 text-lg">{store.name}</h4>
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          <div className="flex items-center space-x-3 mb-3">
+                            <h4 className="font-bold text-gray-900 text-xl">{store.name}</h4>
+                            <span className={`px-3 py-1 rounded-full text-sm font-bold ${
                               store.size === 'large' ? 'bg-green-100 text-green-800' :
                               store.size === 'medium' ? 'bg-yellow-100 text-yellow-800' :
                               'bg-blue-100 text-blue-800'
@@ -156,51 +166,51 @@ const StoreSelector: React.FC<StoreSelectorProps> = ({
                             </span>
                           </div>
                           
-                          <p className="text-gray-600 mb-2 flex items-center">
-                            <MapPin size={14} className="mr-1" />
+                          <p className="text-gray-700 mb-3 flex items-center font-medium">
+                            <MapPin size={16} className="mr-2 text-gray-500" />
                             {store.address}, {store.area}
                           </p>
                           
-                          <div className="flex items-center space-x-4 text-sm text-gray-500">
-                            <span className="flex items-center">
-                              <Clock size={14} className="mr-1" />
+                          <div className="flex items-center space-x-6 text-sm text-gray-600 mb-4">
+                            <span className="flex items-center font-medium">
+                              <Clock size={16} className="mr-2 text-gray-500" />
                               {store.openingHours.weekdays}
                             </span>
-                            <span className="flex items-center">
-                              <Users size={14} className="mr-1" />
+                            <span className="flex items-center font-medium">
+                              <Users size={16} className="mr-2 text-gray-500" />
                               {store.layout.checkouts} checkouts
                             </span>
                           </div>
                           
                           {/* Facilities */}
-                          <div className="flex flex-wrap gap-2 mt-3">
+                          <div className="flex flex-wrap gap-2">
                             {store.facilities.slice(0, 4).map((facility) => (
                               <span
                                 key={facility}
-                                className="px-2 py-1 bg-gray-200 text-gray-700 rounded-full text-xs"
+                                className="px-3 py-1 bg-gray-200 text-gray-800 rounded-full text-sm font-medium"
                               >
                                 {facility.replace('_', ' ')}
                               </span>
                             ))}
                             {store.facilities.length > 4 && (
-                              <span className="px-2 py-1 bg-gray-200 text-gray-700 rounded-full text-xs">
+                              <span className="px-3 py-1 bg-gray-200 text-gray-800 rounded-full text-sm font-medium">
                                 +{store.facilities.length - 4} more
                               </span>
                             )}
                           </div>
                         </div>
                         
-                        <div className="flex items-center space-x-3">
+                        <div className="flex items-center space-x-4">
                           <div className="text-right">
                             <div className="flex items-center text-yellow-500 mb-1">
-                              <Star size={14} className="mr-1 fill-current" />
-                              <span className="text-sm font-medium">4.{Math.floor(Math.random() * 5) + 3}</span>
+                              <Star size={16} className="mr-1 fill-current" />
+                              <span className="text-sm font-bold text-gray-800">4.{Math.floor(Math.random() * 5) + 3}</span>
                             </div>
-                            <p className="text-xs text-gray-500">
+                            <p className="text-sm text-gray-600 font-medium">
                               {Math.floor(Math.random() * 500) + 100} reviews
                             </p>
                           </div>
-                          <ChevronRight className="text-gray-400" size={20} />
+                          <ChevronRight className="text-gray-400" size={24} />
                         </div>
                       </div>
                     </div>
@@ -214,13 +224,13 @@ const StoreSelector: React.FC<StoreSelectorProps> = ({
         {/* Footer */}
         <div className="bg-gray-50 px-6 py-4 border-t">
           <div className="flex items-center justify-between">
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-gray-700 font-medium">
               {filteredStores.length} store{filteredStores.length !== 1 ? 's' : ''} available
             </p>
             {selectedStore && (
               <button
                 onClick={() => handleStoreSelect(selectedStore)}
-                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-3 rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 font-semibold shadow-md hover:shadow-lg"
               >
                 Continue with {selectedStore.name}
               </button>
